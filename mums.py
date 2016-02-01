@@ -53,6 +53,7 @@ Then prefix any command with the desired environment name
     $ ./prod env | grep DATABASE
 
 """
+import argparse
 import getpass
 import hashlib
 import io
@@ -66,31 +67,12 @@ import sys
 from Crypto.Cipher import AES
 from Crypto import Random
 
-import click
-
-
-class Config(object):
-    def __init__(self):
-        self.path = None
-        self.key = get_key(os.path.expanduser("~/.ssh/id_rsa"))
-
-pass_config = click.make_pass_decorator(Config, ensure=True)
-
-
-@click.group()
-@pass_config
-@click.option('--key-file', type=click.File("r"))
-@click.argument('mumfile')
-def cli(config, key_file, mumfile):
-    config.path = mumfile
-    if key_file:
-        f = open(key_file.name, 'r')
-        config.key = f.read()
-        f.close()
-
 
 def get_key(keyfile):
-    return open(keyfile).read()
+    key = None
+    with open(keyfile, 'r') as f:
+        key = f.read()
+    return key
     #return getpass.getpass("Password: ")
 
 
@@ -204,10 +186,10 @@ def test():
     assert(json.loads(result) == d)
 
 
-def _load(config):
-    if os.path.exists(config.path):
+def _load(args):
+    if os.path.exists(args.path):
         try:
-            data = json.loads(decrypt_file(config.key, config.path))
+            data = json.loads(decrypt_file(get_key(args.keyfile), args.path))
         except UnicodeDecodeError:
             raise Exception("Failed to load from vault")
     else:
@@ -215,69 +197,61 @@ def _load(config):
     return data
 
 
-@cli.command()
-@pass_config
-def show(config):
+def show(args):
     """Show the name, value pairs stored in the environment"""
-    data =_load(config)
+    data =_load(args)
     for k,v in data.items():
-        click.echo("{}={}".format(k, v))
+        print("{}={}".format(k, v))
 
 
-@cli.command()
-@click.argument("name")
-@click.argument("value")
-@pass_config
-def store(config, name, value):
+def store(args):
     """NAME VALUE Store the name, value in the environment"""
-    data = _load(config)
-    data[name] = value
-    encrypt_file(config.key, json.dumps(data), config.path)
+    data = _load(args)
+    data[args.name] = args.value
+    encrypt_file(get_key(args.keyfile), json.dumps(data), args.path)
 
 
-@cli.command()
-@click.argument('name')
-@pass_config
-def remove(config, name):
+def remove(args):
     """NAME \t Remove the variable with the given name from the environment"""
-    data = _load(config)
-    data.pop(name)
-    encrypt_file(config.key, json.dumps(data), config.path)
+    data = _load(args)
+    data.pop(args.name)
+    encrypt_file(get_key(args.keyfile), json.dumps(data), args.path)
 
 
-@cli.command()
-@click.argument('args', nargs=-1)
-@pass_config
 def run(config, args):
     """-- CMD [OPTIONS] [ARGUMENTS] run the command with the given environment"""
-    data =_load(config)
+    data =_load(args)
     for k, v in data.items():
         os.environ[k] = v
     subprocess.call(args, env=os.environ)
 
 
-"""
+parser = argparse.ArgumentParser()
+parser.add_argument('path')
+parser.add_argument('--keyfile', default=os.path.expanduser("~/.ssh/id_rsa"))
+subparsers = parser.add_subparsers()
+
+show_parser = subparsers.add_parser('show')
+show_parser.set_defaults(func=show)
+
+store_parser = subparsers.add_parser('store')
+store_parser.add_argument('name')
+store_parser.add_argument('value')
+store_parser.set_defaults(func=store)
+
+remove_parser = subparsers.add_parser('remove')
+remove_parser.add_argument('name')
+remove_parser.set_defaults(func=remove)
+
+run_parser = subparsers.add_parser('run')
+run_parser.add_argument('args', nargs=argparse.REMAINDER)
+run_parser.set_defaults(func=run)
+
+
+def mums():
+    args = parser.parse_args()
+    args.func(args)  # call the default function
+
+
 if __name__ == '__main__':
-    if sys.argv[1] == 'test':
-        test()
-
-    if sys.argv[1] == 'store':
-        path = sys.argv[2]
-        name = sys.argv[3]
-        value = sys.argv[4]
-        store(path, name, value)
-
-    if sys.argv[1] == 'env':
-        path = sys.argv[2]
-        env(path)
-
-    if sys.argv[1] == 'remove':
-        path = sys.argv[2]
-        name = sys.argv[3]
-        remove(path, name)
-
-    if sys.argv[1] == 'load':
-        path = sys.argv[2]
-        args = sys.argv[3:]
-        load(path, args)
-"""
+    mums()

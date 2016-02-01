@@ -4,15 +4,14 @@ setup(
     name='mums',
     license='BSD',
     url='http://github.com/pterk/mums',
-    version='0.3',
+    version='0.4',
     py_modules=['mums'],
     install_requires=[
-        'Click',
         'pycrypto',
     ],
     entry_points='''
         [console_scripts]
-        mums=mums:cli
+        mums=mums:mums
     ''',
     author='Peter van Kampen',
     author_email='pterk@datatailors.com',
