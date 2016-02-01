@@ -4,7 +4,7 @@ setup(
     name='mums',
     license='BSD',
     url='http://github.com/pterk/mums',
-    version='0.4',
+    version='0.4.1',
     py_modules=['mums'],
     install_requires=[
         'pycrypto',
