@@ -84,7 +84,9 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 def cli(config, key_file, mumfile):
     config.path = mumfile
     if key_file:
-        config.key = get_key(key_file)
+        f = open(key_file.name, 'r')
+        config.key = f.read()
+        f.close()
 
 
 def get_key(keyfile):

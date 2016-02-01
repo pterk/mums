@@ -4,7 +4,7 @@ setup(
     name='mums',
     license='BSD',
     url='http://github.com/pterk/mums',
-    version='0.2',
+    version='0.3',
     py_modules=['mums'],
     install_requires=[
         'Click',
