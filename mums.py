@@ -189,7 +189,7 @@ def test():
 def _load(args):
     if os.path.exists(args.path):
         try:
-            data = json.loads(decrypt_file(get_key(args.keyfile), args.path))
+            data = json.loads(decrypt_file(get_key(args.key_file), args.path))
         except UnicodeDecodeError:
             raise Exception("Failed to load from vault")
     else:
@@ -208,27 +208,30 @@ def store(args):
     """NAME VALUE Store the name, value in the environment"""
     data = _load(args)
     data[args.name] = args.value
-    encrypt_file(get_key(args.keyfile), json.dumps(data), args.path)
+    encrypt_file(get_key(args.key_file), json.dumps(data), args.path)
 
 
 def remove(args):
     """NAME \t Remove the variable with the given name from the environment"""
     data = _load(args)
     data.pop(args.name)
-    encrypt_file(get_key(args.keyfile), json.dumps(data), args.path)
+    encrypt_file(get_key(args.key_file), json.dumps(data), args.path)
 
 
-def run(config, args):
+def run(args):
     """-- CMD [OPTIONS] [ARGUMENTS] run the command with the given environment"""
     data =_load(args)
     for k, v in data.items():
         os.environ[k] = v
-    subprocess.call(args, env=os.environ)
+    cmd = args.cmd
+    if cmd[0] == '--':
+        cmd = cmd[1:]
+    subprocess.call(cmd, env=os.environ)
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('path')
-parser.add_argument('--keyfile', default=os.path.expanduser("~/.ssh/id_rsa"))
+parser.add_argument('--key-file', default=os.path.expanduser("~/.ssh/id_rsa"))
 subparsers = parser.add_subparsers()
 
 show_parser = subparsers.add_parser('show')
@@ -244,13 +247,17 @@ remove_parser.add_argument('name')
 remove_parser.set_defaults(func=remove)
 
 run_parser = subparsers.add_parser('run')
-run_parser.add_argument('args', nargs=argparse.REMAINDER)
+run_parser.add_argument('cmd', nargs=argparse.REMAINDER)
 run_parser.set_defaults(func=run)
 
 
 def mums():
-    args = parser.parse_args()
-    args.func(args)  # call the default function
+    try:
+        args = parser.parse_args()
+        args.func(args)  # call the default function
+    except (AttributeError, IndexError):
+        parser.print_usage()
+        sys.exit(1)
 
 
 if __name__ == '__main__':
